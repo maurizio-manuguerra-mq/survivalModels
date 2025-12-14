@@ -1,0 +1,42 @@
+ordinalCont v1.2 (Release date: 2017-06-16)
+==============
+
+Changes:
+
+* non-parametric functions now with mean zero
+* new parameters in the ocm function (n.int.knots and order)
+* plot.ocm can now plot individual graphs
+* possibility of choosing smoothing parameters
+* no density graph in plot.ocm
+
+ordinalCont v1.2.2 (Release date: 2017-11-30)
+==============
+
+Changes:
+
+* predict.ocm bug fixes
+* extra parameters in plot.ocm
+
+ordinalCont v2.0.2 (Release date: 2019)
+==============
+
+Changes:
+
+* original ordering of data in predict.ocm() is now respected
+
+
+ordinalCont v2.0.4 (Release date: 2020)
+==============
+
+Changes:
+
+* minor changes, version linked to published JSS paper
+
+
+ordinalCont v2.0.5 (Release date: 2021)
+==============
+
+Changes:
+
+* Working on predict.ocm() when new datasets are included
+* prediction on observed scale with 95% CIs
