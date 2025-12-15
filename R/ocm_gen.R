@@ -94,7 +94,7 @@ pllik_gen <- function(pars_obj, curval, wts){
 #' @param link One of "logit" (default), "probit", "cloglog", "loglog" or "cauchit".
 #' @return A list with the link function and the 1st, 2nd and 3rd derivatives with respect to the argument
 #' @import Deriv
-deriv_link <- function(link=c("logit", "probit", "cloglog", "loglog", "cauchit")){
+deriv_link <- function(link=c("logit", "probit", "cloglog", "loglog", "cauchit"), h=NULL, k){
   if (link=="logit"){
     F <- function(x) exp(x)/(1+exp(x))
     dF <- Deriv(f = F, nderiv = c(0,1,2,3))
@@ -112,6 +112,43 @@ deriv_link <- function(link=c("logit", "probit", "cloglog", "loglog", "cauchit")
   }  else if (link=="cauchit") {
     F <- function(x) atan(x)/pi + 0.5
     dF <- Deriv(f = F, nderiv = c(0,1,2,3))
+  } else if (link=="parametric") {
+    # dg <- 2
+    # k = length(gamma) - dg - 1
+    # knots <- seq(min(h)*1.01, max(h)*0.99, length=k)
+    # isMat0 <- iSpline(h, knots = knots, degree = dg, derivs = 0)
+    # isMat1 <- iSpline(h, knots = knots, degree = dg, derivs = 1)
+    # isMat2 <- iSpline(h, knots = knots, degree = dg, derivs = 2)
+    # isMat3 <- iSpline(h, knots = knots, degree = dg, derivs = 3)
+    F0 <- function(h, gamma) {
+      dg <- 2
+      k = length(gamma) - dg - 1
+      knots <- seq(min(h)*1.01, max(h)*0.99, length=k)
+      isMat <- iSpline(h, knots = knots, degree = dg, derivs = 0)
+      isMat %*% gamma
+    }
+    F1 <- function(h, gamma) {
+      dg <- 2
+      k = length(gamma) - dg - 1
+      knots <- seq(min(h)*1.01, max(h)*0.99, length=k)
+      isMat <- iSpline(h, knots = knots, degree = dg, derivs = 1)
+      isMat %*% gamma
+    }
+    F2 <- function(h, gamma) {
+      dg <- 2
+      k = length(gamma) - dg - 1
+      knots <- seq(min(h)*1.01, max(h)*0.99, length=k)
+      isMat <- iSpline(h, knots = knots, degree = dg, derivs = 2)
+      isMat %*% gamma
+    }
+    F3 <- function(h, gamma) {
+      dg <- 2
+      k = length(gamma) - dg - 1
+      knots <- seq(min(h)*1.01, max(h)*0.99, length=k)
+      isMat <- iSpline(h, knots = knots, degree = dg, derivs = 3)
+      isMat %*% gamma
+    }
+    dF <- function(x, gamma) {out=list(F0(x, gamma),F1(x, gamma),F2(x, gamma),F3(x, gamma)); names(out)=c("0","1","2","3");return(out)}
   }
   return(dF)
 }
