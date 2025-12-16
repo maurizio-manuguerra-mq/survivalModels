@@ -112,7 +112,24 @@ ocm <- function(formula, data=NULL, scale=NULL, weights, link = c("logit", "prob
     for (ii in 1:length(ipen)) {pars_obj[[ipen[ii]]]$estimate_lambda=F; pars_obj[[ipen[ii]]]$lambda=lambdas[ii]}
   }
   #Fit
-
+  if (link == "logit" | link=="probit" | link=="cloglog" | link=="loglog" | link=="cauchit"){
+    deriv_funs <- deriv_link(link=link)
+    thetadist <- NULL
+  } else if (link == 'semiparametric'){
+    nk=12 #12
+    dg=2
+    nth=nk+dg+1
+    knots <- seq(-9.99, 9.99, length=nk)
+    deriv_funs <- deriv_link(link=link, knots = knots, dg = 2)
+    #
+    thetadist <- rep(1/nth, nth)
+    thetadist <- optim(thetadist, fn = semiparametric_dist_to_logit, deriv_funs=deriv_funs, control = list(maxit=2000))$par
+    # thetadist <- c(-10.5643454265173, -10.9631258707541, -5.24410617591137, -8.32158867579115, -12.9408099546666, 13.997382110412, -1.42281264185309, 15.7755002169866, 13.8430696735624, 13.3046076508902, 9.73549980225262, -3.09269369600495, -0.526906434943263, -9.31607249753808, -10.161207553849)
+    #
+  } else {
+    stop("link function not implemented.")
+  }
+  
   regression_edf0 <- sum(sapply(pars_obj, function(x)ifelse(x$type=="fix.eff",x$len,0)))
   pen_index = which(sapply(pars_obj, function(x)x$estimate_lambda))
   ##pen_index at least =1 as g function is now non-parametric
@@ -122,23 +139,6 @@ ocm <- function(formula, data=NULL, scale=NULL, weights, link = c("logit", "prob
     conv_val <- NULL 
     regression_edf <- regression_edf0
     ##
-    if (link == "logit" | link=="probit" | link=="cloglog" | link=="loglog" | link=="cauchit"){
-      deriv_funs <- deriv_link(link=link)
-      thetadist <- NULL
-    } else if (link == 'semiparametric'){
-      nk=12
-      dg=2
-      nth=nk+dg+1
-      knots <- seq(-9.99, 9.99, length=nth)
-      deriv_funs <- deriv_link(link=link, knots = knots, dg = 2)
-      #
-      # thetadist <- rep(1/nth, nth)
-      # optim(thetadist, fn = semiparametric_dist_to_logit, deriv_funs=deriv_funs, control = list(maxit=2000))
-      thetadist <- c(-10.5643454265173, -10.9631258707541, -5.24410617591137, -8.32158867579115, -12.9408099546666, 13.997382110412, -1.42281264185309, 15.7755002169866, 13.8430696735624, 13.3046076508902, 9.73549980225262, -3.09269369600495, -0.526906434943263, -9.31607249753808, -10.161207553849)
-      #
-    } else {
-      stop("link function not implemented.")
-    }
     est <- ocmEst4(v, weights, pars_obj, deriv_funs, thetadist, niters[2], conv_crit=conv_crit) 
     pars_obj <- est[["pars_obj"]]
     Ginv = est$vcov
@@ -200,14 +200,26 @@ ocmEst4 <- function(v, weights, pars_obj, deriv_funs, thetadist=NULL, int_iters,
   fit <- NewtonMi_gen(pars_obj, deriv_funs=deriv_funs, gamma=gamma, maxiters=int_iters, wts=weights, convVal=conv_crit)
   pars_obj <- fit$pars_obj
   curval = fit$curval
-  # gamma | beta,theta
+  
   if (!is.null(thetadist)){
-    # pllik_semipar(thetadist, pars_obj = fit$pars_obj, deriv_funs=deriv_funs, curval = fit$curval, wts = weights)
-    thetadist <- optim(thetadist, fn=pllik_semipar, deriv_funs=deriv_funs, pars_obj = pars_obj, curval = curval, wts = weights)$par
-    gamma <- exp(thetadist) / sum(exp(thetadist))
-    curval <- current.values(pars_obj, deriv_funs, gamma=gamma)
-    # plot(curval$h, curval$dFs$`0`) #, ylim=c(0,1))
-    # lines(curval$h, inv.logit(curval$h))
+    gamma0 = gamma/gamma
+    cat("\ngamma convergence: ")
+    while (max(abs(gamma-gamma0))>0.01){
+      cat(max(abs(gamma-gamma0)), "\t")
+      gamma0=gamma
+      # gamma | beta,theta
+      thetadist <- optim(thetadist, fn=pllik_semipar, deriv_funs=deriv_funs, pars_obj = pars_obj, curval = curval, wts = weights)$par
+      gamma <- exp(thetadist) / sum(exp(thetadist))
+      curval <- current.values(pars_obj, deriv_funs, gamma=gamma)
+      # plot(curval$h, curval$dFs$`0`) #, ylim=c(0,1))
+      # lines(curval$h, inv.logit(curval$h))
+      
+      # beta, theta | gamma
+      fit <- NewtonMi_gen(pars_obj, deriv_funs=deriv_funs, gamma=gamma, maxiters=int_iters, wts=weights, convVal=conv_crit)
+      pars_obj <- fit$pars_obj
+      curval = fit$curval
+    }
+    cat(max(abs(gamma-gamma0)),"\n")
   }
   #
   coef <- fit$par
