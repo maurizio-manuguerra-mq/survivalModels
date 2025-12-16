@@ -73,7 +73,7 @@
 #' }
 
 
-ocm <- function(formula, data=NULL, scale=NULL, weights, link = c("logit", "probit", "cloglog", "loglog", "cauchit"), niters=c(500,500), conv_crit=1e-2, n.int.knots=NULL, order=4, lambdas=NA)
+ocm <- function(formula, data=NULL, scale=NULL, weights, link = c("logit", "probit", "cloglog", "loglog", "cauchit", "semiparametric"), niters=c(500,500), conv_crit=1e-2, n.int.knots=NULL, order=4, lambdas=NA)
 {
 	lambda=0
   if (missing(formula) | length(formula)<3) 
@@ -124,10 +124,22 @@ ocm <- function(formula, data=NULL, scale=NULL, weights, link = c("logit", "prob
     ##
     if (link == "logit" | link=="probit" | link=="cloglog" | link=="loglog" | link=="cauchit"){
       deriv_funs <- deriv_link(link=link)
+      thetadist <- NULL
+    } else if (link == 'semiparametric'){
+      nk=12
+      dg=2
+      nth=nk+dg+1
+      knots <- seq(-9.99, 9.99, length=nth)
+      deriv_funs <- deriv_link(link=link, knots = knots, dg = 2)
+      #
+      # thetadist <- rep(1/nth, nth)
+      # optim(thetadist, fn = semiparametric_dist_to_logit, deriv_funs=deriv_funs, control = list(maxit=2000))
+      thetadist <- c(-10.5643454265173, -10.9631258707541, -5.24410617591137, -8.32158867579115, -12.9408099546666, 13.997382110412, -1.42281264185309, 15.7755002169866, 13.8430696735624, 13.3046076508902, 9.73549980225262, -3.09269369600495, -0.526906434943263, -9.31607249753808, -10.161207553849)
+      #
     } else {
       stop("link function not implemented.")
     }
-    est <- ocmEst4(v, weights, pars_obj, deriv_funs, niters[2], conv_crit=conv_crit) 
+    est <- ocmEst4(v, weights, pars_obj, deriv_funs, thetadist, niters[2], conv_crit=conv_crit) 
     pars_obj <- est[["pars_obj"]]
     Ginv = est$vcov
     if (length(pen_index)>0){
@@ -170,6 +182,8 @@ ocm <- function(formula, data=NULL, scale=NULL, weights, link = c("logit", "prob
   est$weights <- weights
   est$sorting <- sorting_ind
   est$link <- link
+  est$knots_dist <- knots
+  est$distr_fun <- deriv_funs
   est$formula <- formula
   est$scale <- scale
   est$iter <- NULL
@@ -177,11 +191,25 @@ ocm <- function(formula, data=NULL, scale=NULL, weights, link = c("logit", "prob
   est
 }  
 
-ocmEst4 <- function(v, weights, pars_obj, deriv_funs, int_iters, conv_crit=1e-3){
+ocmEst4 <- function(v, weights, pars_obj, deriv_funs, thetadist=NULL, int_iters, conv_crit=1e-3){
   n <- length(v)
   start <- split_obj2pars(pars_obj)
   #fit0 <- NewtonMi(pars_obj, maxiters=int_iters, wts=weights, convVal=conv_crit)
-  fit <- NewtonMi_gen(pars_obj, deriv_funs=deriv_funs, maxiters=int_iters, wts=weights, convVal=conv_crit)
+  # beta, theta | gamma
+  if (!is.null(thetadist)) gamma <- exp(thetadist) / sum(exp(thetadist)) else gamma=NULL
+  fit <- NewtonMi_gen(pars_obj, deriv_funs=deriv_funs, gamma=gamma, maxiters=int_iters, wts=weights, convVal=conv_crit)
+  pars_obj <- fit$pars_obj
+  curval = fit$curval
+  # gamma | beta,theta
+  if (!is.null(thetadist)){
+    # pllik_semipar(thetadist, pars_obj = fit$pars_obj, deriv_funs=deriv_funs, curval = fit$curval, wts = weights)
+    thetadist <- optim(thetadist, fn=pllik_semipar, deriv_funs=deriv_funs, pars_obj = pars_obj, curval = curval, wts = weights)$par
+    gamma <- exp(thetadist) / sum(exp(thetadist))
+    curval <- current.values(pars_obj, deriv_funs, gamma=gamma)
+    # plot(curval$h, curval$dFs$`0`) #, ylim=c(0,1))
+    # lines(curval$h, inv.logit(curval$h))
+  }
+  #
   coef <- fit$par
   names(coef) <- names(start)
   pars_obj <- split_pars2obj(pars_obj, coef)
@@ -201,7 +229,9 @@ ocmEst4 <- function(v, weights, pars_obj, deriv_funs, int_iters, conv_crit=1e-3)
        H = fit$hessian,
        iter=fit$iter,
        logLik = logLik,
-       penlogLik = -fit$value)
+       penlogLik = -fit$value,
+       thetadist = thetadist,
+       gamma = gamma)
 }
 
 

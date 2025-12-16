@@ -357,6 +357,7 @@ ocmPars_update <- function(object, newdata, include_gfun = TRUE){
   obj
 }
 
+#' @export
 predict.g.spline <- function(par_obj, newvalues=NULL){
   new_par_obj <- par_obj
   v_old=par_obj$v
@@ -378,6 +379,7 @@ predict.g.spline <- function(par_obj, newvalues=NULL){
   return(new_par_obj)
 }
 
+#' @export
 predict.smooth.spline <- function(par_obj, newvalues=NULL){
   new_par_obj <- par_obj
   v_old=par_obj$v; v_old=v_old[!is.na(v_old)]
@@ -572,7 +574,7 @@ mvrnormR <- function(n, mu, sigma) {
 }
 
 
-
+#' @export
 format.perc <- function(probs, digits)
     ## Not yet exported, maybe useful in other contexts:
     ## quantile.default() sometimes uses a version of it

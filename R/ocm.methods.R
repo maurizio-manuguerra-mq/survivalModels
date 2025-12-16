@@ -193,7 +193,7 @@ summary.ocm <- function(object, full=F, ...)
   print(res, full, ...)
 }
 
-
+#' @export
 print.summary.ocm <- function(x, full, ...)
 {
   cat("Call:\n")
@@ -921,7 +921,26 @@ get_gfun.ocm <- function(object, ...){
 
 
 
-
+#' @export
+check_semiparametric_distribution <- function(fit, deriv=0){
+  curval = current.values(pars_obj = fit$pars_obj, deriv_funs = fit$distr_fun, gamma = fit$gamma)
+  i = order(curval$h)
+  h = curval$h[i]
+  if (deriv==0){
+    plot(h, inv.logit(h), t='l', lwd=4, ylim=c(0,1), col = adjustcolor("red", alpha.f = 0.5))
+    lines(h, curval$dFs$`0`[i])
+    legend('topleft', legend=c("semiparametric", "logit"), lty=c(1,1), lwd=c(1,4), col=c("black", "red"))
+  } else if (deriv==1){
+    d_invlogit <- function(x) {
+      plogis(x) * (1 - plogis(x))
+    }
+    plot(h, d_invlogit(h), t='l', lwd=4, col = adjustcolor("red", alpha.f = 0.5), ylim=c(0, max(c(d_invlogit(h),curval$dFs$`1`[i]))))
+    lines(h, curval$dFs$`1`[i])
+    legend('topleft', legend=c("semiparametric", "logit"), lty=c(1,1), lwd=c(1,4), col=c("black", "red"))
+  } else {
+    stop("Only deriv=0 and deriv=1 are supported")
+  }
+}
 
 
 

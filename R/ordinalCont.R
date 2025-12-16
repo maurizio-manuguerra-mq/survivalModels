@@ -1,7 +1,7 @@
 #' ordinalCont-package
 #'
 #' @name ordinalCont-package
-#' @docType package
+#' @docType _PACKAGE
 #' @details Ordinal regression analysis is a convenient tool for analyzing ordinal response variables 
 #' in the presence of covariates. We extend this methodology to the case of continuous self-rating 
 #' scales such as the Visual Analog Scale (VAS) used in pain assessment, or the Linear Analog 

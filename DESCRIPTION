@@ -1,4 +1,4 @@
-Package: ordinalCont
+Package: survivalModels
 Title: Ordinal Regression Analysis for Continuous Scales
 Version: 2.0.5
 Authors@R: c(person("Maurizio Manuguerra", role = c("aut", "cre"),
@@ -20,7 +20,7 @@ Description: A regression framework for response variables which are continuous
 Depends: R (>= 3.3.0), boot, splines, Deriv
 License: GPL (>= 2)
 LazyData: true
-RoxygenNote: 7.1.1
+RoxygenNote: 7.3.2
 Encoding: UTF-8
 NeedsCompilation: no
 Packaged: 2021-09-21 16:10:21 UTC; manuguerra

@@ -4,7 +4,11 @@
 \alias{deriv_link}
 \title{Function to compute the derivatives of the link function needed by the algorithm}
 \usage{
-deriv_link(link = c("logit", "probit", "cloglog", "loglog", "cauchit"))
+deriv_link(
+  link = c("logit", "probit", "cloglog", "loglog", "cauchit", "semiparametric"),
+  knots,
+  dg = 2
+)
 }
 \arguments{
 \item{link}{One of "logit" (default), "probit", "cloglog", "loglog" or "cauchit".}

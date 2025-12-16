@@ -1,6 +1,6 @@
-NewtonMi_gen <- function(pars_obj, deriv_funs, maxiters=50, wts, omega=1, convVal=1E-3){
+NewtonMi_gen <- function(pars_obj, deriv_funs, gamma=NULL, maxiters=50, wts, omega=1, convVal=1E-3){
   #Current values
-  curval <- current.values(pars_obj, deriv_funs)
+  curval <- current.values(pars_obj, deriv_funs, gamma=gamma)
   ploglik0 <- pllik_gen(pars_obj, curval, wts=wts)
   #
   rubric <- make_rubric(pars_obj)
@@ -26,7 +26,7 @@ NewtonMi_gen <- function(pars_obj, deriv_funs, maxiters=50, wts, omega=1, convVa
     pars0[beta_inds] <- Beta
     pars_obj <- split_pars2obj(pars_obj, pars0)
     #Current values
-    curval <- current.values(pars_obj, deriv_funs, curval)
+    curval <- current.values(pars_obj, deriv_funs, gamma=gamma, curval)
     ploglik <- pllik_gen(pars_obj, curval, wts=wts)
     #If necessary, line search
     ome <- omega
@@ -36,7 +36,7 @@ NewtonMi_gen <- function(pars_obj, deriv_funs, maxiters=50, wts, omega=1, convVa
       pars0[beta_inds] <- Beta
       pars_obj <- split_pars2obj(pars_obj, pars0)
       #Current values
-      curval <- current.values(pars_obj, deriv_funs, curval)
+      curval <- current.values(pars_obj, deriv_funs, gamma=gamma, curval)
       ploglik <- pllik_gen(pars_obj, curval, wts=wts)
     }
     ploglik0 <- ploglik
@@ -50,7 +50,7 @@ NewtonMi_gen <- function(pars_obj, deriv_funs, maxiters=50, wts, omega=1, convVa
     pars0[gfun_inds] <- Theta
     pars_obj <- split_pars2obj(pars_obj, pars0)
     #Current values
-    curval <- current.values(pars_obj, deriv_funs, curval)
+    curval <- current.values(pars_obj, deriv_funs, gamma=gamma, curval)
     ploglik <- pllik_gen(pars_obj, curval, wts=wts)
     #
     #If necessary, line search
@@ -63,7 +63,7 @@ NewtonMi_gen <- function(pars_obj, deriv_funs, maxiters=50, wts, omega=1, convVa
       pars0[gfun_inds] <- Theta
       pars_obj <- split_pars2obj(pars_obj, pars0)
       #Current values
-      curval <- current.values(pars_obj, deriv_funs, curval)
+      curval <- current.values(pars_obj, deriv_funs, gamma=gamma, curval)
       ploglik <- pllik_gen(pars_obj, curval, wts=wts)
     }
     ploglik0 <- ploglik
@@ -90,68 +90,94 @@ pllik_gen <- function(pars_obj, curval, wts){
   return(npen_loglik)
 }
 
+llik_semipar <- function(pars_obj, curval){
+  return(log(curval$dhdv) + log(curval$dFs$`1`))
+}
+
+pllik_semipar <- function(thetadist, pars_obj, deriv_funs, curval, wts){
+  gamma <- exp(thetadist) / sum(exp(thetadist))
+  curval <- current.values(pars_obj, deriv_funs, gamma=gamma, curval = curval)
+  logliks <- llik_semipar(pars_obj, curval)
+  nloglik <- -sum(wts * logliks)
+  pen <- sum(penalty(pars_obj))
+  npen_loglik <- nloglik + pen
+  if (is.nan(npen_loglik)) npen_loglik=Inf
+  return(npen_loglik)
+}
 #' @title Function to compute the derivatives of the link function needed by the algorithm
 #' @param link One of "logit" (default), "probit", "cloglog", "loglog" or "cauchit".
 #' @return A list with the link function and the 1st, 2nd and 3rd derivatives with respect to the argument
 #' @import Deriv
-deriv_link <- function(link=c("logit", "probit", "cloglog", "loglog", "cauchit"), h=NULL, k){
+deriv_link <- function(link=c("logit", "probit", "cloglog", "loglog", "cauchit", "semiparametric"), knots, dg = 2){
   if (link=="logit"){
-    F <- function(x) exp(x)/(1+exp(x))
-    dF <- Deriv(f = F, nderiv = c(0,1,2,3))
+    F <- function(x, gamma=NULL) exp(x)/(1+exp(x))
+    dF <- Deriv(f = F, x="x", nderiv = c(0,1,2,3))
   } else if (link=="probit") {
     F <- pnorm
     F1 <- function(x)exp(-x^2/2)/sqrt(2*pi)
     dF1 <- Deriv(f = F1, nderiv = c(0,1,2))
-    dF <- function(x) {out=c(list("0"=pnorm(x)), dF1(x)); names(out)=c("0","1","2","3");return(out)}
+    dF <- function(x, gamma=NULL) {out=c(list("0"=pnorm(x)), dF1(x)); names(out)=c("0","1","2","3");return(out)}
   } else if (link=="cloglog") {
-    F <- function(x) 1-exp(-exp(x))
-    dF <- Deriv(f = F, nderiv = c(0,1,2,3))
+    F <- function(x, gamma=NULL) 1-exp(-exp(x))
+    dF <- Deriv(f = F, x="x", nderiv = c(0,1,2,3))
   } else if (link=="loglog") {
-    F <- function(x) exp(-exp(-x))
-    dF <- Deriv(f = F, nderiv = c(0,1,2,3))
+    F <- function(x, gamma=NULL) exp(-exp(-x))
+    dF <- Deriv(f = F, x="x", nderiv = c(0,1,2,3))
   }  else if (link=="cauchit") {
-    F <- function(x) atan(x)/pi + 0.5
-    dF <- Deriv(f = F, nderiv = c(0,1,2,3))
-  } else if (link=="parametric") {
+    F <- function(x, gamma=NULL) atan(x)/pi + 0.5
+    dF <- Deriv(f = F, x="x", nderiv = c(0,1,2,3))
+  } else if (link=="semiparametric") {
+    library(splines2)
     # dg <- 2
     # k = length(gamma) - dg - 1
     # knots <- seq(min(h)*1.01, max(h)*0.99, length=k)
-    # isMat0 <- iSpline(h, knots = knots, degree = dg, derivs = 0)
-    # isMat1 <- iSpline(h, knots = knots, degree = dg, derivs = 1)
-    # isMat2 <- iSpline(h, knots = knots, degree = dg, derivs = 2)
-    # isMat3 <- iSpline(h, knots = knots, degree = dg, derivs = 3)
-    F0 <- function(h, gamma) {
-      dg <- 2
-      k = length(gamma) - dg - 1
-      knots <- seq(min(h)*1.01, max(h)*0.99, length=k)
-      isMat <- iSpline(h, knots = knots, degree = dg, derivs = 0)
-      isMat %*% gamma
+    mink = min(knots) * ifelse(min(knots)>=0, 0.99, 1.01)
+    maxk = max(knots) * ifelse(max(knots)>=0, 1.01, 0.99)
+    x0 = seq(mink, maxk, length=1000)
+    isMat0 <- iSpline(x0, knots = knots, degree = dg, derivs = 0)
+    isMat1 <- iSpline(x0, knots = knots, degree = dg, derivs = 1)
+    isMat2 <- iSpline(x0, knots = knots, degree = dg, derivs = 2)
+    isMat3 <- iSpline(x0, knots = knots, degree = dg, derivs = 3)
+    F0 <- function(x, gamma) {
+      # k = length(gamma) - dg - 1
+      # knots <- seq(min(h)*1.01, max(h)*0.99, length=k)
+      # isMat <- iSpline(x0, knots = knots, degree = dg, derivs = 0)
+      # isMat %*% gamma
+      predict(isMat0, newx=x, coef = gamma)
     }
-    F1 <- function(h, gamma) {
-      dg <- 2
-      k = length(gamma) - dg - 1
-      knots <- seq(min(h)*1.01, max(h)*0.99, length=k)
-      isMat <- iSpline(h, knots = knots, degree = dg, derivs = 1)
-      isMat %*% gamma
+    F1 <- function(x, gamma) {
+      # isMat <- iSpline(x, knots = knots, degree = dg, derivs = 1)
+      # isMat %*% gamma
+      predict(isMat1, newx=x, coef = gamma)
     }
-    F2 <- function(h, gamma) {
-      dg <- 2
-      k = length(gamma) - dg - 1
-      knots <- seq(min(h)*1.01, max(h)*0.99, length=k)
-      isMat <- iSpline(h, knots = knots, degree = dg, derivs = 2)
-      isMat %*% gamma
+    F2 <- function(x, gamma) {
+      # isMat <- iSpline(x, knots = knots, degree = dg, derivs = 2)
+      # isMat %*% gamma
+      predict(isMat2, newx=x, coef = gamma)
     }
-    F3 <- function(h, gamma) {
-      dg <- 2
-      k = length(gamma) - dg - 1
-      knots <- seq(min(h)*1.01, max(h)*0.99, length=k)
-      isMat <- iSpline(h, knots = knots, degree = dg, derivs = 3)
-      isMat %*% gamma
+    F3 <- function(x, gamma) {
+      # isMat <- iSpline(x, knots = knots, degree = dg, derivs = 3)
+      # isMat %*% gamma
+      predict(isMat3, newx=x, coef = gamma)
     }
     dF <- function(x, gamma) {out=list(F0(x, gamma),F1(x, gamma),F2(x, gamma),F3(x, gamma)); names(out)=c("0","1","2","3");return(out)}
   }
   return(dF)
 }
+
+semiparametric_dist <- function(thetadist, deriv_funs, x=seq(-10,10,length=100)){
+    gamma <- exp(thetadist) / sum(exp(thetadist))
+    deriv_funs(x = x, gamma = gamma)$`0`
+}
+
+semiparametric_dist_to_logit <- function(thetadist, deriv_funs, x=seq(-10,10,length=100)){
+    sF = semiparametric_dist(thetadist, deriv_funs, x)
+    lF = inv.logit(x)
+    plot(x, sF, t='l', ylim=c(0,1))
+    lines(x, lF, col='red')
+    sum((sF-lF)^2)
+}
+
 
 #' @title Function to compute inverse link functions
 #' @param link One of "logit" (default), "probit", "cloglog", "loglog" or "cauchit".
@@ -195,12 +221,16 @@ dg <- function(pars_obj){
   pars_obj[[gfun_index]]$mat1 %*% pars_obj[[gfun_index]]$pars
 }
 
-current.values <- function(pars_obj, deriv_funs, curval=NULL, epsilon=1e-6){
+current.values <- function(pars_obj, deriv_funs, gamma=NULL, curval=NULL, epsilon=1e-6){
   if (is.null(curval)) curval=list(dhdeta = do.call(cbind, sapply(pars_obj, function(iv)iv$mat))) else curval=curval
   curval$h = lin_regressor(pars_obj)
   curval$dhdv = dg(pars_obj)
   curval$dhdv[curval$dhdv<epsilon] <- epsilon
-  curval$dFs  = deriv_funs(curval$h)
+  if (is.null(gamma)){
+    curval$dFs  = deriv_funs(curval$h)
+  } else {
+    curval$dFs  = deriv_funs(curval$h, gamma=gamma)
+  }
   curval$dFs$`1`[curval$dFs$`1`<epsilon] <- epsilon
   return(curval)
 }

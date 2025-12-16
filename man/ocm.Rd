@@ -9,7 +9,7 @@ ocm(
   data = NULL,
   scale = NULL,
   weights,
-  link = c("logit", "probit", "cloglog", "loglog", "cauchit"),
+  link = c("logit", "probit", "cloglog", "loglog", "cauchit", "semiparametric"),
   niters = c(500, 500),
   conv_crit = 0.01,
   n.int.knots = NULL,
