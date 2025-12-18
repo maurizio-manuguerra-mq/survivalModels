@@ -531,7 +531,7 @@ plot.ocm <- function(x, plot.only=NULL, CIs = c('vcov','no', 'rnd.x.bootstrap','
   # 
   ########### PLOT 3 
   #Quantile residuals
-  qres <- qnorm((CDF(pars_obj)))
+  qres <- qnorm((CDF(x)))
   #plot(x$v, qres, main="Quantile residuals", xlab="v", ylab="Residual")
   if (is.null(plot.only) | (if (!is.null(plot.only)) plot.only=="quant_resid" else FALSE)){
     

@@ -285,17 +285,19 @@ lin_regressor <- function(pars_obj, gfun=T, intercept=T){
   apply(h_comp,1,sum)
 }
 
-CDF <- function(pars_obj){
-  h <- lin_regressor(pars_obj)
-  return(exp(h)/(1+exp(h)))
+CDF <- function(x){
+  h <- lin_regressor(x$pars_obj)
+  # return(exp(h)/(1+exp(h)))
+  x$distr_fun(h, gamma=x$gamma)$`0`
 }
 
-#Only loglik, no pen
-hessian <- function(pars_obj){
+#Only loglik, no pen -- NOT IN USE
+hessian <- function(fit){
+  pars_obj <- fit$pars_obj
   gfun_index = which(sapply(pars_obj, function(x)x$type)=="gfun")
   dg <- dgfun(pars_obj)
   h <- lin_regressor(pars_obj)
-  F <- CDF(pars_obj)
+  F <- CDF(fit)
   nr <- sum(sapply(pars_obj,function(oi)oi$len))
   H_mat <- matrix(NA, nrow=nr, ncol=nr)
   H_mat2 <- matrix(NA, nrow=nr, ncol=nr)
